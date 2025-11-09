@@ -1,0 +1,127 @@
+rpicam-vid -t 0 --inline --width 1280 --height 720 --framerate 30 --codec h264 --profile baseline --level 4.0 --bitrate 2000000 -o -| gst-launch-1.0 -v fdsrc !   h264parse !   rtph264pay config-interval=1 pt=96 !   udpsink host=192.168.50.2 port=5000
+  
+  
+sudo modprobe bcm2835-v4l2 cvlc v4l2:///dev/video0 --v4l2-width 1920 --v4l2-height 1080 --v4l2-chroma h264 --sout '#standard{access=http,mux=ts,dst=0.0.0.0:12345}'
+  
+  
+rpicam-vid -t 0 -n --codec libav --libav-format mpegts -o 
+
+
+
+/dev/video0 (camera device)-> v4l2compress -> /dev/video10 (v4l2loopback device) -> v4l2rtspserver
+
+
+modprobe v4l2loopback video_nr=10 v4l2compress -fH264 /dev/video0 /dev/video10 & v4l2rtspserver /dev/video10 &
+
+
+
+rpicam-vid -t 0 -n --codec libav --libav-format mpegts -o 
+  
+ 
+ rpicam-vid -t 0 -n --codec libav --libav-format mpegts -o - | v4l2rtspserver -W 640 -H 480 -F 15 -P 8554 
+ OV5647
+
+
+
+
+
+
+Для трансляциииспользуем 
+https://mediamtx.org/docs/usage/publish#raspberry-pi-cameras
+
+Рекомендуемый способ: RTSP через MediaMTX (просто, надёжно, с WebRTC)
+1. Установите MediaMTX (бывший rtsp-simple-server)
+
+# Для Raspberry Pi 64-bit (ARM64)
+wget https://github.com/bluenviron/mediamtx/releases/latest/download/mediamtx_linux_arm64v8.tar.gz релиз отсюда https://github.com/bluenviron/mediamtx/releases
+tar -xzf mediamtx_linux_arm64v8.tar.gz
+
+2. Настройте mediamtx.yml для прямой работы с камерой Pi
+Замените содержимое mediamtx.yml на:
+paths:
+  cam:
+    source: rpiCamera
+    sourceOnDemand: yes
+	
+	о включит аппаратное ускорение, H.264, и камеру будет использовать только при запросе. 
+	
+3. Запустите сервер
+./mediamtx
+
+
+---------------
+# === Создание systemd-сервиса ===
+sudo tee /etc/systemd/system/mediamtx.service > /dev/null <<EOF
+[Unit]
+Description=MediaMTX RTSP/RTP/RTMP/HTTP Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/mediamtx/mediamtx
+WorkingDirectory=/opt/mediamtx
+Restart=always
+User=pi
+Environment=HOME=/home/pi
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# === Активация сервиса ===
+sudo systemctl daemon-reload
+sudo systemctl enable mediamtx.service
+sudo systemctl start mediamtx.service
+
+----------------
+
+
+4. Смотрите стрим
+RTSP:
+
+
+rtsp://<IP_вашего_Pi>:8554/cam
+
+
+WebRTC (в браузере)
+http://<IP_вашего_Pi>:8889/cam
+
+
+---------------
+rpicam
+Подключение
+https://docs.arducam.com/Raspberry-Pi-Camera/Native-camera/5MP-OV5647/#raspberry-pi-compute-module-3-4-cm3cm4
+
+sudo nano /boot/firmware/config.txt
+camera_auto_detect=1 замените её на: camera_auto_detect=0
+
+[all]
+camera_auto_detect=0
+
+
+У Pi 5 есть два порта для камеры. Если вы подключили камеру к порту с надписью CAM0, вам нужно изменить шаг 3. Добавьте следующую строку:
+dtoverlay=ov5647,cam0
+
+sudo reboot
+
+
+Запуск трансляции
+https://www.raspberrypi.com/documentation/computers/camera_software.html
+
+UDP
+rpicam-vid -t 0 -n --codec libav --libav-format mpegts -o udp://<ip-addr>:<port>
+vlc udp://@:<port>
+
+TCP
+rpicam-vid -t 0 -n --codec libav --libav-format mpegts -o tcp://0.0.0.0:<port>?listen=1
+vlc tcp://<ip-addr-of-server>:<port>
+
+RTSP
+rpicam-vid -t 0 -n --codec libav --libav-format mpegts -o - | cvlc stream:///dev/stdin --sout '#rtp{sdp=rtsp://:8554/stream1}'
+vlc rtsp://<ip-addr-of-server>:8554/stream1
+
+
+Встраивание AI в трансляцию 
+https://www.raspberrypi.com/documentation/computers/camera_software.html#post-processing-with-rpicam-apps

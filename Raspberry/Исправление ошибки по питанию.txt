@@ -1,0 +1,15 @@
+"Исправление" ошибки по питанию
+
+https://forums.raspberrypi.com/viewtopic.php?t=386085
+
+в файле /boot/firmware/config.txt установить
+usb_max_current_enable = 1
+
+затем выполнить команду 
+sudo rpi-eeprom-config --edit
+в открывшемся файле добавить в конец
+PSU_MAX_CURRENT=5000
+закрыть с сохранением
+перезапустить компьютер
+
+Питаем от блокапитания 5В 5А. Tсли ток будет меньше всё вырубится

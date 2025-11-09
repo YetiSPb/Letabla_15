@@ -1,0 +1,31 @@
+Включение PCIe Gen 3.0 и модуля Hailo AI
+
+---------------------------------------------------------------------------------------------
+To enable PCIe Gen 3.0 speeds, add the following line to /boot/firmware/config.txt:
+
+dtparam=pciex1_gen=3
+Reboot your Raspberry Pi with sudo reboot for these settings to take effect.
+
+Настройка модуля AI
+https://www.raspberrypi.com/documentation/computers/ai.html
+Работает пока только на debian bookworm
+Камера OV5647 
+
+Обновление системы 
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt-get install -y build-essential
+sudo apt-get install -y raspberrypi-kernel-headers
+
+
+Обновить загрузчик, если Ruspbery старый
+Включить PCIe Gen 3.0 speeds. Можно добавить в конфиг dtparam=pciex1_gen=3
+sudo raspi-config 
+
+sudo reboot
+
+Установить Hailo
+sudo apt install hailo-all
+
+sudo reboot
+hailortcli fw-control identify

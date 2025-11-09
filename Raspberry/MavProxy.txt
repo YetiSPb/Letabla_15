@@ -1,0 +1,121 @@
+Включение UART на ttyAMA10 (UART JST)
+
+Распиновка UART JST смотрим с порта USB
+Raspberry PI 5 Dedicated Debug UART Connector Pinout
+tx GND rx
+
+-------------------------------------------
+Включение интерфейсов UART на GPIO разъеме Raspberry PI 5
+https://dzen.ru/a/Z07_huw6OTjxtefp
+
+sudo nano /boot/firmware/config.txt
+В секцию [all] добавляем следующие строки:
+
+dtoverlay=uart1-pi5
+dtoverlay=uart2-pi5
+dtoverlay=uart3-pi5
+dtoverlay=uart4-pi5
+# UART on
+enable_uart=1
+# Bluetooth off
+dtoverlay=disable-bt
+
+Если нужно использовать GPIO UART (пины 14/15), добавьте в `/boot/firmware/config.txt`:
+enable_uart=1
+dtoverlay=uart0-pi5
+
+Отключаем сервисы операционной системы, занимающие порты UART, командами:
+
+sudo systemctl disable hciuart.service
+sudo systemctl disable bluetooth.service
+
+sudo reboot
+-------------------------------------------
+
+# Использование UART /dev/ttyAMA10 на Raspberry Pi 5
+
+Цель
+Разблокировать порт /dev/ttyAMA10 (debug UART) и использовать его для обмена данными с внешним устройством (например, микроконтроллером, GPS-модулем, сенсором и т.п.).
+
+-------------------------------------------------------------------------------------------
+1. Проверяем текущее состояние UART
+
+ls -l /dev/ttyAMA*
+ls -l /dev/serial0
+
+Если /dev/serial0 → /dev/ttyAMA10, значит debug UART занят под системную консоль.
+
+-------------------------------------------------------------------------------------------
+2. Отключаем консоль от порта /dev/ttyAMA10
+
+Открой файл `/boot/firmware/cmdline.txt`:
+
+sudo nano /boot/firmware/cmdline.txt
+
+Найти и удалить `console=serial0,115200` или похожий параметр.  
+Должно остаться, например:
+
+console=tty1 root=PARTUUID=... rootfstype=ext4 fsck.repair=yes rootwait quiet splash
+
+-------------------------------------------------------------------------------------------
+3. Проверяем EEPROM-конфигурацию
+
+sudo rpi-eeprom-update --edit
+
+Найди строку:
+BOOT_UART=1
+и замени на:
+BOOT_UART=0
+
+Если строки нет — добавь вручную в конец файла.
+
+-------------------------------------------------------------------------------------------
+4. Проверяем, не запущен ли getty на этом порту
+
+sudo systemctl list-units | grep getty
+
+Если есть `serial-getty@ttyAMA10.service`, отключи его:
+
+sudo systemctl disable serial-getty@ttyAMA10.service
+sudo systemctl stop serial-getty@ttyAMA10.service
+
+-------------------------------------------------------------------------------------------
+5. Проверяем права доступа
+
+Проверь группу пользователя:
+
+groups
+
+Если нет `dialout`, добавь:
+
+sudo usermod -a -G dialout $USER
+
+Перезайди в систему.
+
+-------------------------------------------------------------------------------------------
+6. Перезагрузка и проверка
+
+sudo reboot
+sudo fuser -v /dev/ttyAMA10
+
+Если ничего не показывает — порт свободен.  
+Проверка работы:
+
+minicom -b 115200 -D /dev/ttyAMA10
+
+или Python-пример:
+
+```python
+import serial
+ser = serial.Serial('/dev/ttyAMA10', 115200, timeout=1)
+ser.write(b'Hello device!\n')
+print(ser.readline())
+ser.close()
+
+-------------------------------------------------------------------------------------------
+Проверка результата
+
+`/dev/ttyAMA10` свободен;
+`console=serial0` отсутствует в `/proc/cmdline`;
+`BOOT_UART=0` в EEPROM.
+
