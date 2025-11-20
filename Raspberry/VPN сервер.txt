@@ -29,13 +29,17 @@ cd /home/openvpn-node/scripts && sh cfg-build.sh user_base
 
 #
 
-
 -------------------------------------------
 docker compose restart openvpn
 
-GroundStation,10.0.12.100
-Letabla_15,10.0.12.101
-Letabla_10,10.0.12.102
+Наземные станции от 100-109
+GroundStation,10.0.12.101
+OculusQuest,10.0.12.102
+
+Летаблы от 111 до n
+Letabla_15,10.0.12.111
+Letabla_10,10.0.12.112
+
 
 Переменная окружения
 export OVPN_DATA="/home/openvpn-node/opt/_data/"
@@ -43,18 +47,16 @@ export OVPN_DATA="/home/openvpn-node/opt/_data/"
 Список клиентов
 docker run --rm -it -v $OVPN_DATA:/etc/openvpn kylemanna/openvpn ovpn_listclients
 
-Создание клиента
+Создание клиента. внимание. он перезаписывается при создании нового
 cd /home/openvpn-node && docker run -v ./opt/_data:/etc/openvpn --rm -it kylemanna/openvpn easyrsa build-client-full [USERNAME] nopass
 cd /home/openvpn-node/scripts && sh cfg-build.sh [USERNAME]
 
+далее сертификат копировать отсюда
+/home/openvpn-node/tmp/out.ovpn
+внимание. он перезаписывается при создании нового
+
 Удаление клиента
 docker run --rm -it -v $OVPN_DATA:/etc/openvpn kylemanna/openvpn ovpn_revokeclient [USERNAME] remove
-
-
-Привязка IP 
-
-В коныиг сервера вставить 
-topology subnet
 
 Разделение локалки и Интернета
 в конфиге сервера закоментить
@@ -64,10 +66,13 @@ push "redirect-gateway def1 bypass-dhcp"
 push "route 10.0.12.0 255.255.255.0"
 
 
+Привязка IP 
+В конфиг сервера вставить 
+topology subnet
 
-cd /etc/openvpn/ccd/
-
+cd /home/openvpn-node/opt/_data/ccd
+создать файл с именем созданного сертификата
 nano [USERNAME]
 
 вставить
-ifconfig-push 10.0.12.100 255.255.255.0
+ifconfig-push [ip адрес] [маска]
