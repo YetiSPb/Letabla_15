@@ -1,0 +1,250 @@
+Настройкамодема Fibocom FM350 с eSim
+
+https://4pda.to/forum/index.php?showtopic=1057776
+https://4pda.to/forum/index.php?showtopic=994474
+https://forum.artnet.biz/threads/fibocom-fm350-gl-lte-obsuzhdeniye-proshivka.423/
+https://eko.one.pl/forum/viewtopic.php?id=24025&p=14
+
+------------------------------------------------------------------------------------------------------------------------
+Изменение IMEI
+
+Прочитать текущие IMEI
+AT+EGMREXT=0,7 // Для физической sim
+AT+EGMREXT=0,10 // Для esim
+ИЛИ
+AT+EGMR=0,7 // Для физической sim
+AT+EGMR=0,10 // Для esim
+
+Записать новые IMEI
+AT+EGMREXT=1,7,"869203070482476" // Для физической sim
+AT+EGMREXT=1,10,"869203070482476" // Для esim
+ИЛИ
+AT+EGMR=1,7,"<IMEI>" // Для физической sim
+AT+EGMR=1,10,"<IMEI>" // Для esim
+
+https://www.imei.info
+869203070482476
+
+------------------------------------------------------------------------------------------------------------------------
+Настройка eSim
+
+Управление eSIM с помощью LPAC
+https://4pda.to/forum/index.php?showtopic=1057776&view=findpost&p=131679026
+- Для работы утилиты нужно чтобы был выбран слот с eSIM:
+AT+GTESIMCFG=0,0,0
+AT+GTDUALSIM=1
+
+Перезагрузка
+
+Программа для работы с eSim
+EasyLPAC-windows-x86_64-with-lpac-fibocom.zip ( 39.94 МБ )
+https://www.youtube.com/watch?v=VoHEYNwmDYo
+
+------------------------------------------------------------------------------------------------------------------------
+Проверка модема в Debian
+lsusb
+mmcli -L
+mmcli -m 0
+
+------------------------------------------------------------------------------------------------------------------------
+Установка изменение modemmanager на версию 1.20.4 она определяет все порты этого модема
+sudo apt-cache policy pkg modemmanager 
+
+sudo systemctl stop ModemManager.service
+sudo systemctl disable ModemManager.service
+sudo apt autoremove modemmanager
+
+cd Downloads/
+
+sudo dpkg -i ~/Downloads/modemmanager_1.20.4-1_arm64.deb
+sudo dpkg -i ~/Downloads/modemmanager_1.24.2-2_arm64.deb
+sudo dpkg -i ~/Downloads/modemmanager_1.25.1-1_arm64.deb
+sudo apt --fix-broken install
+
+sudo systemctl enable ModemManager.service
+sudo systemctl start ModemManager.service
+
+------------------------------------------------------------------------------------------------------------------------
+Скрипт с логированием для запуска модемного соединения и получения IP от модема
+
+sudo mkdir /home/operator/modem/
+sudo nano /home/operator/modem/modem-start.sh
+
+#!/bin/bash
+
+# ============================================
+# Настройки
+# ============================================
+LOGFILE="/var/log/modem-start.log"
+AT_PORT="/dev/ttyUSB3"
+INTERFACE="eth1"
+APN="internet"
+
+# ============================================
+# Логирование (очистить на каждом запуске)
+# ============================================
+echo "=== Новый запуск модем-скрипта: $(date) ===" > "$LOGFILE"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOGFILE"
+}
+
+log "Скрипт начал работу"
+log "Используемый AT-порт: $AT_PORT"
+
+# ============================================
+# Ожидание появления /dev/ttyUSB3 (макс 5 мин)
+# ============================================
+log "Ожидание появления AT-порта..."
+
+for i in {1..300}; do
+    if [ -e "$AT_PORT" ]; then
+        log "AT-порт найден"
+        break
+    fi
+    sleep 1
+done
+
+if [ ! -e "$AT_PORT" ]; then
+    log "ОШИБКА: Порт $AT_PORT не появился за 5 минут!"
+    exit 1
+fi
+
+# ============================================
+# Функция отправки AT
+# ============================================
+send_at() {
+    local cmd="$1"
+    log "Отправка: $cmd"
+    echo -e "$cmd\r" > "$AT_PORT"
+    sleep 1
+    RESP=$(timeout 2 cat "$AT_PORT")
+    log "Ответ: $RESP"
+    echo "$RESP"
+}
+
+# ============================================
+# Ожидание ответа OK в течение 5 минут
+# ============================================
+log "Ожидание ответа OK от модема (до 5 минут)..."
+
+READY=0
+for i in {1..300}; do
+    RESP=$(send_at "AT")
+    if echo "$RESP" | grep -q "OK"; then
+        READY=1
+        break
+    fi
+    sleep 1
+done
+
+if [ $READY -eq 0 ]; then
+    log "ОШИБКА: Модем не отвечает OK за 5 минут!"
+    exit 1
+fi
+
+log "Модем готов — OK получен"
+
+# ============================================
+# Настройка APN и активация PDP
+# ============================================
+send_at 'AT+CFUN=1'
+send_at 'AT+CGDCONT=1,"IPV4V6","internet"'
+send_at 'AT+CGACT=1,1'
+
+# ============================================
+# Получение IP (до 10 попыток)
+# ============================================
+IP=""
+for i in {1..10}; do
+    RESP=$(send_at "AT+CGPADDR=1")
+    IP=$(echo "$RESP" | grep -oP '(\d{1,3}\.){3}\d{1,3}' | head -n1)
+
+    if [ -n "$IP" ]; then
+        break
+    fi
+
+    log "IP не получен, попытка $i/10..."
+    sleep 2
+done
+
+if [ -z "$IP" ]; then
+    log "ОШИБКА: Не удалось получить IP"
+    exit 1
+fi
+
+log "Получен IP: $IP"
+
+# ============================================
+# Получение DNS
+# ============================================
+RESP2=$(send_at "AT+GTDNS=1")
+DNS1=""
+DNS2=""
+
+if [[ $RESP2 =~ \"([0-9.]+)\"\,\"([0-9.]+)\" ]]; then
+    DNS1="${BASH_REMATCH[1]}"
+    DNS2="${BASH_REMATCH[2]}"
+fi
+
+log "DNS1=$DNS1 DNS2=$DNS2"
+
+# ============================================
+# Расчёт шлюза
+# ============================================
+IFS='.' read -r a b c d <<< "$IP"
+GATEWAY="$a.$b.$c.1"
+log "Gateway: $GATEWAY"
+
+# ============================================
+# Настройка NetworkManager
+# ============================================
+log "Удаление старого профиля..."
+nmcli connection delete Megafon 2>/dev/null
+
+log "Создание нового профиля..."
+nmcli connection add type ethernet con-name Megafon ifname "$INTERFACE" \
+    ipv4.method manual \
+    ipv4.addresses "$IP/24" \
+    ipv4.gateway "$GATEWAY" \
+    ipv4.dns "$DNS1,$DNS2" \
+    >>"$LOGFILE" 2>&1
+
+log "Поднятие соединения..."
+nmcli connection up Megafon >>"$LOGFILE" 2>&1
+
+log "Скрипт успешно завершён"
+
+
+
+
+после создания скрипта делаем его исполняемым
+sudo chmod +x /home/operator/modem/modem-start.sh
+
+------------------------------------------------------------------------------------------------------------------------
+Авто запуск скрипта при старте системы но после старта USB
+
+Создаём systemd‑службу
+sudo nano /etc/systemd/system/modem-start.service
+
+
+[Unit]
+Description=Modem auto-config script for Megafon
+After=systemd-udev-settle.service network-online.target
+Requires=systemd-udev-settle.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/operator/modem/modem-start.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+
+
+Включаем службу
+sudo systemctl daemon-reload
+sudo systemctl enable modem-start.service
+
+Проверка 
+sudo systemctl start modem-start.service
