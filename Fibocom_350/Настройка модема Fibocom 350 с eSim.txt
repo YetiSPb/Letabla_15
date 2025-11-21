@@ -47,22 +47,10 @@ mmcli -L
 mmcli -m 0
 
 ------------------------------------------------------------------------------------------------------------------------
-Установка изменение modemmanager на версию 1.20.4 она определяет все порты этого модема
-sudo apt-cache policy pkg modemmanager 
-
+Удаление modemmanager он мешает работе с модемом
 sudo systemctl stop ModemManager.service
 sudo systemctl disable ModemManager.service
 sudo apt autoremove modemmanager
-
-cd Downloads/
-
-sudo dpkg -i ~/Downloads/modemmanager_1.20.4-1_arm64.deb
-sudo dpkg -i ~/Downloads/modemmanager_1.24.2-2_arm64.deb
-sudo dpkg -i ~/Downloads/modemmanager_1.25.1-1_arm64.deb
-sudo apt --fix-broken install
-
-sudo systemctl enable ModemManager.service
-sudo systemctl start ModemManager.service
 
 ------------------------------------------------------------------------------------------------------------------------
 Скрипт с логированием для запуска модемного соединения и получения IP от модема
