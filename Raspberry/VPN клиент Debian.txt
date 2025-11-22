@@ -1,0 +1,3 @@
+apt install openvpn
+далее сохраняешь конфиг и запускаешь
+openvpn —config letabl.ovpn
