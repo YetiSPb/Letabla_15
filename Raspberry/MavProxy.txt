@@ -48,8 +48,6 @@ ls -l /dev/serial0
 -------------------------------------------------------------------------------------------
 2. Отключаем консоль от порта /dev/ttyAMA10
 
-Открой файл `/boot/firmware/cmdline.txt`:
-
 sudo nano /boot/firmware/cmdline.txt
 
 Найти и удалить `console=serial0,115200` или похожий параметр.  
@@ -60,7 +58,7 @@ console=tty1 root=PARTUUID=... rootfstype=ext4 fsck.repair=yes rootwait quiet sp
 -------------------------------------------------------------------------------------------
 3. Проверяем EEPROM-конфигурацию
 
-sudo rpi-eeprom-update --edit
+sudo rpi-eeprom-config --edit
 
 Найди строку:
 BOOT_UART=1
@@ -82,20 +80,17 @@ sudo systemctl stop serial-getty@ttyAMA10.service
 -------------------------------------------------------------------------------------------
 5. Проверяем права доступа
 
-Проверь группу пользователя:
-
+Проверь группу пользователя dialout:
 groups
 
 Если нет `dialout`, добавь:
-
 sudo usermod -a -G dialout $USER
 
-Перезайди в систему.
+sudo reboot
 
 -------------------------------------------------------------------------------------------
-6. Перезагрузка и проверка
+6. Проверка
 
-sudo reboot
 sudo fuser -v /dev/ttyAMA10
 
 Если ничего не показывает — порт свободен.  

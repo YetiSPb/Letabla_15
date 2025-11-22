@@ -2,7 +2,8 @@
 
 https://forums.raspberrypi.com/viewtopic.php?t=386085
 
-в файле /boot/firmware/config.txt установить
+sudo nano /boot/firmware/config.txt 
+установить
 usb_max_current_enable = 1
 
 затем выполнить команду 

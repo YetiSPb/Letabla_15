@@ -1,3 +1,27 @@
-apt install openvpn
-далее сохраняешь конфиг и запускаешь
+Установка и настройка openvpn клиента на Debian
+
+установка
+sudo apt install openvpn
+
+Сохранить сертификат и запустить
 openvpn —config letabl.ovpn
+
+--------------------------------------------
+Автозапуск
+sudo nano /etc/systemd/system/openvpn_client.service
+
+
+[Unit]
+Description=OpenVPN client
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/openvpn --config /home/operator/openvpn/Letabla_15.ovpn
+Restart=on-failure
+User=operator
+WorkingDirectory=/home/operator/openvpn
+
+[Install]
+WantedBy=multi-user.target

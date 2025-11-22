@@ -25,25 +25,29 @@ rpicam-vid -t 0 -n --codec libav --libav-format mpegts -o
 
 
 
-
-Для трансляциииспользуем 
+----------------------------------------------------------------------------------------------
+Установка и настройка MediaMTX
 https://mediamtx.org/docs/usage/publish#raspberry-pi-cameras
 
-Рекомендуемый способ: RTSP через MediaMTX (просто, надёжно, с WebRTC)
 1. Установите MediaMTX (бывший rtsp-simple-server)
 
-# Для Raspberry Pi 64-bit (ARM64)
-wget https://github.com/bluenviron/mediamtx/releases/latest/download/mediamtx_linux_arm64v8.tar.gz релиз отсюда https://github.com/bluenviron/mediamtx/releases
-tar -xzf mediamtx_linux_arm64v8.tar.gz
+sudo mkdir mediamtx
+cd mediamtx
+# Для Raspberry Pi 64-bit (ARM64)Файл релиза брать отсюда https://github.com/bluenviron/mediamtx/releases
+sudo wget https://github.com/bluenviron/mediamtx/releases/download/v1.15.4/mediamtx_v1.15.4_linux_arm64.tar.gz 
+sudo tar -xzf mediamtx_v1.15.4_linux_arm64.tar.gz
 
 2. Настройте mediamtx.yml для прямой работы с камерой Pi
+
+sudo nano mediamtx.yml
+
 Замените содержимое mediamtx.yml на:
 paths:
   cam:
     source: rpiCamera
     sourceOnDemand: yes
 	
-	о включит аппаратное ускорение, H.264, и камеру будет использовать только при запросе. 
+включит аппаратное ускорение, H.264, и камеру будет использовать только при запросе. 
 	
 3. Запустите сервер
 ./mediamtx
@@ -51,24 +55,27 @@ paths:
 
 ---------------
 # === Создание systemd-сервиса ===
-sudo tee /etc/systemd/system/mediamtx.service > /dev/null <<EOF
+sudo nano /etc/systemd/system/mediamtx.service
+
 [Unit]
 Description=MediaMTX RTSP/RTP/RTMP/HTTP Server
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/opt/mediamtx/mediamtx
-WorkingDirectory=/opt/mediamtx
+ExecStart=/home/operator/mediamtx/mediamtx
+WorkingDirectory=/home/operator/mediamtx
 Restart=always
-User=pi
-Environment=HOME=/home/pi
+User=operator
+Environment=HOME=/home/operator
+
+# Логи в journalctl
 StandardOutput=journal
 StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-EOF
+
 
 # === Активация сервиса ===
 sudo systemctl daemon-reload
